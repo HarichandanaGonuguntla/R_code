@@ -1,0 +1,253 @@
+---
+title: "Velo.com Case"
+author: "Harichandana Gonuguntla/U1448647"
+date: "March-05,2023"
+output: 
+  html_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+<!-- Note:   -->
+
+<!-- These instructions are commented out and will not display when you knit your RMarkdown document. -->
+
+<!-- - Change the information in the yaml header above:  title, author, data. -->
+<!-- - Make sure output is html_document. -->
+<!-- - Once you are finished coding, **run each chunk individually to make sure there are no errors**.  (If necessary fix your code.) Once your code is error-free, click "knit" on the menu above. Your document should compile to HTML, provided that you have output set to "html_document." -->
+<!-- - In the code chunk above ("setup") echo is set to TRUE.  This means that the code in your chunks will be displayed, along with the results, in your compiled document. -->
+
+## Load data and packages
+
+```{r}
+library(tidyverse)
+
+v <- read_csv("velo.csv")
+
+```
+
+## Questions
+
+Lightly comment your code and use pipes for readability.
+
+Comment briefly on each of the questions, as directed.  Only the the final question requires a lengthier response.
+
+### Q1
+
+Plot the distribution of `spent` by `checkout_system`.  Below you will use a t-test to compare these distributions statistically.  However, a t-test assumes normally distributed data.  Is that assumption valid in this case?  Why or why not?
+
+Note: 
+
+1. You could compare the two distributions using histograms but a density plot works better. (A boxplot is also an option.)
+
+2. Make sure to include a plot title.
+
+```{r}
+# Density plot of amount spent with respect to checkout systems
+ggplot(v , aes(x = spent , col = checkout_system))+
+  geom_density() +
+  theme_minimal() +
+  labs(title = "Distribution of spent by checkout system")
+
+```
+
+> Answer: Yes, the assumption is valid in this case. The t-test usually relies on assumption that the data should follow a normal distribution	for it to give results effectively. From the plot(Distribution of spent by checkout system) as shown above, we can clearly notice that the data is normally distributed and hence our assumption stands valid in this case.
+
+### Q2
+
+Create a summary table of `spent` by `checkout_system` with the following statistics:
+
+- n
+- mean
+- median
+- standard deviation
+- total 
+- the lower and upper bound of a 95% z-confidence interval for the mean.
+
+Your table should have 2 rows and 8 columns.
+
+```{r}
+v %>% 
+  group_by(checkout_system) %>% 
+  summarize(n = n(),
+            mean = mean(spent),
+            sd = sd(spent),
+            median = median(spent),
+            se = (sd/sqrt(n)),
+            lowerCI = (mean - 1.96 * se) %>%  round(2),
+            upperCI = (mean + 1.96 * se)  %>%  round(2))
+```
+
+> Answer : When we create a summary table of amount spent by checkout system, we see that the mean earnings in new checkout system (2279.89 $) seem to be more than the mean earnings in old checkout system (2217.148 $)
+
+###  Q3
+
+Is average spending significantly higher in the treatment group?  (The treatment group consists in the customers using the new checkout system.)  Answer this question using a 2 sample, 2-tailed t-test with alpha set at .05. (Note that these are the default settings for the `t.test()` function when vectors are supplied for the x and y arguments.)
+
+```{r}
+?t.test
+t.test(x = filter(v, checkout_system == 'old')$spent,
+       y = filter(v, checkout_system == 'new')$spent)
+
+# Define function to calculate t for a 2 sample test
+
+tstat <- function(mean1, mean2, var1, var2, n1, n2){
+  (mean1 - mean2)/sqrt(var1/n1 + var2/n2)
+}
+
+# Use function
+
+tstat(2217.148, 2279.890, 1276.839^2, 1316.097^2, 1655, 1828)
+
+data.frame(x = seq(from = -4, to = 4, by = .01)) %>% 
+  mutate(density = dt(x, df = 1655 - 1)) %>% 
+  ggplot(aes(x, density))+
+  geom_line()+
+  geom_ribbon(aes(x = ifelse(x < -1.973, x, NA), ymin = 0, ymax = density), fill = "red")+
+  geom_ribbon(aes(x = ifelse(x > 1.973, x, NA), ymin = 0, ymax = density), fill = "red")+
+  geom_vline(xintercept = -1.4, lty = 2)+
+  labs(title = "Null distribution for T(1654)",
+       subtitle = "Rejection regions in red, with observed t-statistic in black") +
+  theme_minimal()
+```
+
+> Answer: The average spending in the control group(old checkout system) is 2217.148$ and in the treatment group(new checkout system) the average earnings are equal to 2279.890$ .There is a difference of 62.742$ between the 2 groups, however the difference is not significantly higher one.
+In this case the p-value(0.15) is greater than 0.05 and hence the null hypothesis in this particular scenario cannot be rejected.
+
+### Q4
+
+Create another summary table of `spent` by `checkout_system` and `device`.  Include these same statistics:
+
+- n
+- mean
+- median
+- standard deviation
+- the lower and upper bound of a 95% confidence interval for the mean.
+
+```{r}
+v %>% 
+  group_by(checkout_system,device) %>% 
+  summarize(n = n(),
+            mean = mean(spent),
+            sd = sd(spent),
+            median = median(spent),
+            se = (sd/sqrt(n)),
+            lowerCI = (mean - 1.96 * se) %>%  round(2),
+            upperCI = (mean + 1.96 * se)  %>%  round(2))
+
+```
+
+The table should have 4 rows and 8 columns. 
+
+Based on this information (as well as Sarah's observation, noted in the case description, that the glitch in the checkout system seemed more prevalent for mobile users), an additional statistical comparison of new and old among just mobile users seems warranted. Make that comparison using a 2 sample, 2-tailed t-test with alpha set at .05.  Report your results.
+
+Note that a t-test can only compare two groups.  Therefore, you will need to subset the data before making the comparison.
+
+```{r}
+?t.test
+t.test(x = filter(v, checkout_system == 'old', device == 'mobile')$spent,
+       y = filter(v, checkout_system == 'new', device == 'mobile')$spent)
+
+# Define function to calculate t for a 2 sample test
+
+tstat <- function(mean1, mean2, var1, var2, n1, n2){
+  (mean1 - mean2)/sqrt(var1/n1 + var2/n2)
+}
+
+# Use function
+
+tstat(2174.920, 2322.996, 1278.839^2, 1326.185^2, 798, 999)
+
+data.frame(x = seq(from = -4, to = 4, by = .01)) %>% 
+  mutate(density = dt(x, df = 798 - 1)) %>% 
+  ggplot(aes(x, density))+
+  geom_line()+
+  geom_ribbon(aes(x = ifelse(x < -1.973, x, NA), ymin = 0, ymax = density), fill = "red")+
+  geom_ribbon(aes(x = ifelse(x > 1.973, x, NA), ymin = 0, ymax = density), fill = "red")+
+  geom_vline(xintercept = -2.4, lty = 2)+
+  labs(title = "Null distribution for T(797)",
+       subtitle = "Rejection regions in red, with observed t-statistic in black") +
+  theme_minimal()
+```
+
+> Answer: From the above t-test, we can see that the observed t-statistic in black falls in the rejection region and hence our null hypothesis(that there is no glitch between the old and the new checkout systems) gets rejected. Also, we can observe that the mean earnings in old system(mobile users) is 2174.920$ and for new system(mobile users) it is 2322.996$. Hence we can confirm that there is a glitch in the old checkout system which led to lesser earnings and when its corrected in the new checkout system will further lead to more earnings than in the old system.
+
+### Q5
+
+What course of action should Sarah recommend to the management at velo.com? Please incorporate your analytic results from above in fashioning an answer.
+
+> Answer : Sarah Swan, the data scientist at Velo.com has to suggest the management to switch to a new checkout system rather than the old one. Her suggestion is backed by strong data analysis with the help of A/B testing (i.e t-test in this case). To prove this, she starts with a Null hypothesis that there is no glitch between the old and the new checkout systems. When she compares the mean average earnings of old and new checkout systems with device type as a grouping variable, she notices the following average earnings: New system with Mobile device type has 2322.96$ ,new system with computer device type 2227.944$ , an old system with mobile device type has 2174.920$ and old system with computer device type has 2256.469$. That means in the new system mobile device has more earnings than computer whereas in the old system computer device had more earnings. This is clearly because of a glitch in the old system which is causing fewer earnings in mobile device type. Also, this conclusion can be backed with the help of a t-test  on old and new systems with mobile device.In this case the p-value is 0.016 which is less than the standard p-value for comparison( 0.05). Hence we can reject the null hypothesis.Also, when we look at the resulting Null distribution for T(797) as above we can clearly see that the observed t-statistic in black falls in the red-rejection region, which means that the Null hypothesis can be clearly rejected by this obersvation. Thus our hypothesis is wrong and the actual conclusion/observation(which is opposite to our hypothesis here) is that there is actually a glitch in the old checkout system that is causing the average mobile purchases to go down. So when this glitch is corrected in the new system, it will result in increased average mobile purchases ( which is backed by analysis of data using mean summary values and t-test). So the clear suggestion from Sarah to the Velo management would be to replace the old checkout system with the new one in order to increase their average mobile purchases.
+
+### Challenge
+
+In looking at the summary tables you created above you might wonder about differences not just in spending but also in the number of customers.  After all, the case description indicated that customers may have been prevented from completing purchases using the old checkout system. Here are the counts:
+
+```{r}
+
+table(v$checkout_system) 
+
+```
+
+Obviously there are some notable differences in the number of customers  Are these differences statistically significant?
+
+We could answer this question using simulation. For example, the binomial distribution could be used to represent the null distribution, the number of expected buyers under the null hypothesis of no difference between the checkout systems (that is, no difference in buying probability).  The *observed* proportion of buyers under the new system is 1828 / (1828 + 1655) = .525. How often would this proportion occur under the null? 
+
+```{r}
+# We will use the rbinom() function to do this simulation. n refers to the number of simulations, 
+# size refers to the number of trials, and prob is the probability of getting a 1 under the null. 
+
+# Example:
+rbinom(n = 1, size = 1, prob = .5)
+rbinom(10, 1, .5)
+rbinom(10, 10, .5)
+
+# Here is the simulation.  Note that we divide by the total number of trials to obtain the proportion of 1s.
+set.seed(123)
+sims <- rbinom(n = 100000, size = nrow(v), prob = .5) / nrow(v)
+
+hist(sims)
+```
+
+The observed proportion would not happen very often under the null.  Let's calculate a formal p-value.
+
+```{r}
+(sims >= (1828 / (1828 + 1655))) %>% mean
+```
+
+We would double this for a 2-sided test, of course, but the result is still easily statistically significant at the conventional threshold of p < .05.   
+
+The Chi-squared test is the statistical test typically used in this situation to do a formal hypothesis test of the counts in a 1 x 2 or 2 x 2 (or larger) contingency table. Here is a Kahn Academy video on it: 
+
+https://www.khanacademy.org/math/ap-statistics/chi-square-tests/chi-square-goodness-fit/v/chi-square-statistic. 
+
+And here is the Wikipedia article:  
+
+https://en.wikipedia.org/wiki/Chi-squared_test. 
+
+Here is the R function:
+
+```{r}
+
+?chisq.test
+
+```
+
+Note that this R function takes a table as its argument:
+
+```{r}
+
+chisq.test(table(v$checkout_system))
+
+```
+
+Notice that the p-value is almost identical to what we calculated using simulation!
+
+1. Explain the chisquare test.
+2. Run the chisquare test also on the 2 x 2 contingency table comparing checkout system and device. 
+3. Interpret the statistical results for the chisquare tests for both the 1 x 2 table and the 2 x 2 table. 
+4. What is the relevance of these for the velo.com case?
+

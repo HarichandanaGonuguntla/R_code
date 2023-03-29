@@ -1,0 +1,139 @@
+---
+title: "Pacdev Case"
+author: "Harichandana Gonuguntla"
+date: "26th March,2023"
+output: 
+  html_document:
+    toc: true
+---
+
+## Q1
+1. Plot price against sqft with a summary linear regression line.
+
+2. Determine the equation of the summary line in the plot (by fitting the corresponding regression model) and interpret the coefficients for the intercept and sqft in the equation.
+
+In this and subsequent questions interpret means: write down in concrete terms what each coefficient says about the value of a home, or the change in the value of a home, conditional on predictors.
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+
+p <- read_csv("pacdev_data.csv")
+glimpse(p)
+
+
+(linear_model <- lm(price ~ sqft, data = p)) %>% 
+summary() # Summarize model output
+
+# ggplot function for data s and mapping variables to aesthetics
+  ggplot(data = p, mapping = aes(x = sqft, y = price)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) +  
+  labs(title = "price ~ sqft") 
+```
+
+> Interpretation: The equation of the summary line in the plot is price = 40623.019 + 269.345 sqft.That means, the average price of home is 40623.019 and for every 1 unit increase in the square foot, the price changes(here increases) by 269.345.
+
+## Q2
+1. Fit a multiple regression model of price with all the available predictors entered additively (+). However, create a centered version of sqft (by subtracting the mean from each observation) and use this as a predictor rather than the original variable. (There should be 8 coefficients in this model.)
+
+2. Interpret the 4 coefficients for the intercept, centered sqft, and city. Remember that Long Beach is the (missing) reference city in the model, assuming that factor levels have been assigned alphabetically.
+
+```{r}
+sqft_centered <- scale(p$sqft,scale=FALSE)
+glimpse(sqft_centered)
+glimpse(p)
+
+#Non-interactive model
+(non_int_1 <- lm(price ~ city + pool + garage + sqft_centered + bed + bath, data = p)) %>% 
+  summary()
+```
+
+> 2.Interpretation:- 
+- `Intercept`: 528103.213 is the average price when the city is Longbeach and square feet is equal to the centered square feet value of 271.561
+- `citySanta Monica`: 190239.704 is the increase in price of the house when city is changed from Long beach to Santa Monica.
+- `cityWestwood`: 88020.719 is the increase in price of the house when city is changed from Long beach to Westwood.
+- `sqft_centered` : For every 1 unit increase in square foot the price of the house changes (here increases) by 271.561. Also, the coefficient of the sqft variable is same when its changed from usual sqft to centered sqft value.
+
+## Q3
+1. To the above model add an interaction between centered sqft and city. This means that you combine these terms multiplicatively (*) rather than additively (+).
+
+2. Create a visualization of this interaction model, making sure to use centered sqft in the plot.
+
+3. Interpret 6 coefficients from this model: the intercept, the main effects for centered sqft and city, and the interaction effects.
+
+```{r}
+(int_1 <- lm(price ~ city * sqft_centered + pool + garage + bed + bath ,data = p)) %>% 
+  summary()
+
+p %>% 
+  ggplot(aes( sqft_centered,price, col = city))+ # color the lines in the plot by device
+  geom_smooth(method = "lm", se = F) +
+  labs(title = "Price ~ sqft_centered * city") 
+
+```
+
+>3. Interpretation:- 
+- `Intercept`: 527445.45 is the average price when the city is Longbeach and square feet is equal to the centered square feet value of 240.63
+- `citySanta Monica`: 189904.29 is the increase in price of the house when city is changed from Long beach to Santa Monica.
+- `cityWestwood`: 88037.11 is the increase in price of the house when city is changed from Long beach to Westwood.
+- `sqft_centered` : For every 1 unit increase in square feet the price of the house changes (here increases) by 240.63
+- `citySanta Monica:sqft_centered` : 90.09 is the average difference in relationship(i.e difference in slopes) between city and price of the house for Santa Monica vs. Long beach cities when the sqft is centered. That is when the sqft is centered in both the Santa Monica and Longbeach, there will be 90.09 increase in price of house in Santa Monica compared to Longbeach.
+- `cityWestwood:sqft_centered` : 37.95 is the average difference in relationship(i.e difference in slopes) between city and price of the house for Santa Monica vs. Long beach cities when the sqft is centered.That is when the sqft is centered in both the Westwood and Longbeach, there will be 37.95 increase in price of house in Westwood compared to Longbeach.
+
+
+## Q4
+Is this a good model?To assess model fit create three plots
+
+1. A residual plot with model residuals on the vertical axis and the fitted values on the horizontal axis. Add a summary line.
+
+2. A plot of the model’s fitted values (again on the horizontal axis) against observed values of price. Add a summary line.
+
+3. A histogram of the residuals.
+
+Two functions will extract the fitted values from a model object: fitted(object) and predict(object). (If the newdata argument is omitted, predict() just returns the fitted values.)
+
+Comment on model fit.
+
+```{r}
+#1
+p %>% 
+  mutate(fitted = fitted(int_1),
+         residuals = price - fitted) %>% 
+  ggplot(aes(fitted, residuals)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = F, col = "red") +
+  labs(title = "residuals for the interaction model")
+
+#2
+p %>% 
+  mutate(fitted = fitted(int_1),
+         actual_price = price) %>% 
+  ggplot(aes(fitted, actual_price)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = F, col = "red") +
+  labs(title = "Fitted vs observed values for the interaction model")
+
+#3
+  fitted <- fitted(int_1)
+  residual <- p$price - fitted
+  ggplot(data = p, aes(x = residual)) + 
+  geom_histogram() + 
+  labs(title = "")
+  
+```
+
+> The model is a good fit, because in the first plot,the summary line of residuals does not show any pattern i.e no structure is visible when we plot fitted values against the residuals. Secondly,the summary line of fitted vs observed value follows the pattern in line with the actual data with an increasing slope( for both the data and summary line) which shows that the outcome is a linear function of the predictors. Finally the histogram of the residuals follows normal distribution with its center around zero.From the above we can conclude that the model is a good fit.
+
+## Q5
+1. What should Andrew say in his presentation? Write a brief summary of the quantitative evidence that he should use to support this recommendation.
+
+> Andrew Shaw, the new data scientist at PacDev has to suggest PacDev to focus on the city Santa Monica to maximize the price increase for additional square footage. Here is a brief summary of the evidence that he can use to support his recommendation.The equation of the linear regression summary line without including any variables as predictors is price = 40623.019 + 269.345 sqft, which means that for every 1 unit increase in the square foot the price increases by 269. But in order to estimate the price variations for the 3 cities with respect to additional sqft change, we added all the predictor variables as part of Multiple Linear regression. In specific for sqft variable, we have added centered sqft because the interpretation becomes easier when the predictor values are centered by subtracting the actual value from its mean. After adding centered sqft to the model, 528103.213 is the average price when the city is Longbeach and square feet is equal to the centered square feet value of 271.56. For every 1 unit increase in square feet the price of the house changes (here increases) by 271.56. Also, 190239.704 is the increase in price of the house when city is changed from Long beach to Santa Monica and 88020.719 is the increase in price of the house when city is changed from Long beach to Westwood, which says that the mean price increase is more for Santa Monica compared to other cities.To be more precise to estimate the average difference in relationship(i.e difference in slopes) between city and price of the house we added interactions between city and centered sqft in our model. From this we infer that when the sqft is centered in both Santa Monica and Longbeach, there will be 90.09 increase in price of house in Santa Monica compared to Longbeach and when the sqft is centered in both Westwood and Longbeach, there will be 37.95 increase in price of house in Westwood compared to Longbeach. So this interaction model also clearly shows that the average price increase is more in Santa Monica.From all the above data points and analysis it is clearly evident that Pacdev reaps more benefits/profits when it focuses on Santa Monica.
+
+
+## Challenge
+
+```{r}
+
+```
+
